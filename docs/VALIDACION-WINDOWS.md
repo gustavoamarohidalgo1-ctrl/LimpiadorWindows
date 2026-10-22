@@ -2,7 +2,7 @@
 
 Versión **2.2.1**.
 
-Compilar WPF desde Mac valida referencias, código y XAML. No ejecuta el Shell ni la ventana. En el anfitrión macOS se aprobaron **41/41 pruebas portátiles**, incluida una planificación con **12.000 candidatos**; esto no acredita ejecución WPF o Win32. Las pruebas siguientes siguen pendientes de Windows y requieren archivos creados para la prueba.
+Compilar WPF desde Mac valida referencias, código y XAML. No ejecuta el Shell ni la ventana. En el anfitrión macOS se aprobaron **41/41 pruebas portátiles**, incluida una planificación con **12.000 candidatos**; esto no acredita ejecución WPF o Win32. La CI de Windows x64 también ejecutó los fixtures nativos descritos en [ESTADO-VALIDACION.md](ESTADO-VALIDACION.md). El protocolo siguiente debe completarse en el equipo de destino, especialmente la interfaz WPF, y requiere archivos creados para la prueba.
 
 ## Pruebas automatizadas
 
