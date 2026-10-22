@@ -7,8 +7,9 @@ public sealed class HistoryStore
 {
     public string DirectoryPath { get; }
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
-    // Windows may reject simultaneous replace-renames of the same destination. Share this
-    // short commit gate across store instances; serialize and flush each temporary independently.
+    // Windows replace-renames may fail while a reader holds the destination open, even with
+    // FileShare.Delete. Coordinate commits and complete reads across store instances; keep
+    // temporary serialization and flushing independent, and propagate publication errors.
     private static readonly object CommitGate = new();
 
     public HistoryStore(string directoryPath) => DirectoryPath = Path.GetFullPath(directoryPath);
@@ -41,12 +42,15 @@ public sealed class HistoryStore
     public HistoryRecord Read(string id)
     {
         ValidateId(id);
-        using var stream = new FileStream(Path.Combine(DirectoryPath, id + ".json"), FileMode.Open,
-            FileAccess.Read, FileShare.Read | FileShare.Delete);
-        var record = JsonSerializer.Deserialize<HistoryRecord>(stream)
-                     ?? throw new InvalidDataException("El historial no es válido.");
-        ValidateRecord(record, id);
-        return record;
+        lock (CommitGate)
+        {
+            using var stream = new FileStream(Path.Combine(DirectoryPath, id + ".json"), FileMode.Open,
+                FileAccess.Read, FileShare.Read | FileShare.Delete);
+            var record = JsonSerializer.Deserialize<HistoryRecord>(stream)
+                         ?? throw new InvalidDataException("El historial no es válido.");
+            ValidateRecord(record, id);
+            return record; // The stream is disposed before releasing the commit gate.
+        }
     }
 
     public IReadOnlyList<HistoryRecord> List()

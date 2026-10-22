@@ -9,8 +9,8 @@ jobs:
   verify:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: '10.0.x'
       - name: Compilar y probar
@@ -32,7 +32,7 @@ jobs:
         run: |
           ./scripts/compilar.ps1 -Arquitectura win-x64 -SinPruebas
           ./scripts/compilar.ps1 -Arquitectura win-arm64 -SinPruebas
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         with:
           name: LimpiadorUltraWindows
           path: |
@@ -41,14 +41,14 @@ jobs:
           if-no-files-found: error
       - name: Conservar registros de compilación y pruebas
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: Registros-verificacion-Windows
           path: artifacts/ci/*.log
           if-no-files-found: warn
       - name: Conservar fixtures propios si falla una prueba nativa
         if: failure() && env.LIMPIADOR_CI_FIXTURES != ''
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: Fixtures-fallo-Windows
           path: ${{ env.LIMPIADOR_CI_FIXTURES }}/Limpiador-native-tests-*/**
