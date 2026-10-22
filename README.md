@@ -1,6 +1,6 @@
 # Limpiador Ultra Windows
 
-Versión **2.2.0**.
+Versión **2.2.1**.
 
 [![Comprobación en Windows](https://github.com/gustavoamarohidalgo1-ctrl/LimpiadorWindows/actions/workflows/windows.yml/badge.svg)](https://github.com/gustavoamarohidalgo1-ctrl/LimpiadorWindows/actions/workflows/windows.yml)
 
@@ -8,9 +8,9 @@ Aplicación nativa en español para analizar espacio y revisar qué puede limpia
 
 ## Descargar
 
-- [Windows x64 — Intel y AMD](https://github.com/gustavoamarohidalgo1-ctrl/LimpiadorWindows/releases/download/v2.2.0/LimpiadorUltraWindows-win-x64.zip)
-- [Windows ARM64](https://github.com/gustavoamarohidalgo1-ctrl/LimpiadorWindows/releases/download/v2.2.0/LimpiadorUltraWindows-win-arm64.zip)
-- [Versión 2.2.0, código fuente y sumas SHA-256](https://github.com/gustavoamarohidalgo1-ctrl/LimpiadorWindows/releases/tag/v2.2.0)
+- [Windows x64 — Intel y AMD](https://github.com/gustavoamarohidalgo1-ctrl/LimpiadorWindows/releases/download/v2.2.1/LimpiadorUltraWindows-win-x64.zip)
+- [Windows ARM64](https://github.com/gustavoamarohidalgo1-ctrl/LimpiadorWindows/releases/download/v2.2.1/LimpiadorUltraWindows-win-arm64.zip)
+- [Versión 2.2.1, código fuente y sumas SHA-256](https://github.com/gustavoamarohidalgo1-ctrl/LimpiadorWindows/releases/tag/v2.2.1)
 
 Esta primera publicación es una **versión de evaluación**. Consulta el [estado de validación](docs/ESTADO-VALIDACION.md) antes de usar operaciones de limpieza; la revisión visual en un equipo Windows sigue pendiente.
 

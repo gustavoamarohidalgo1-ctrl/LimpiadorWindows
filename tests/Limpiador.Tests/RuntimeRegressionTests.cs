@@ -10,6 +10,7 @@ internal static class RuntimeRegressionTests
         yield return ("Un historial dañado no impide ver las operaciones recuperables", CorruptHistoryAsync);
         yield return ("El historial rechaza identidades ajenas y campos nulos sin reemplazar datos válidos", InvalidHistoryAsync);
         yield return ("Escrituras concurrentes del historial dejan un JSON completo sin temporales", ConcurrentHistoryAsync);
+        yield return ("Un destino de historial no reemplazable informa el error y conserva sus datos", UnwritableHistoryAsync);
         yield return ("La salida de mantenimiento conserva inicio y final con memoria limitada", BoundedOutputAsync);
         yield return ("Una solicitud cancelada no inicia un comando de mantenimiento", CancelledCommandAsync);
     }
@@ -56,12 +57,51 @@ internal static class RuntimeRegressionTests
         using var fixture = new Fixture();
         var store = new HistoryStore(Path.Combine(fixture.Root, "History"));
         var record = new HistoryRecord();
-        await Task.WhenAll(Enumerable.Range(0, 16).Select(index => Task.Run(() =>
-            store.Save(record with { Status = "Operación " + index, Details = [new string((char)('a' + index), 4096)] }))));
-        var restored = store.Read(record.Id);
-        var index = int.Parse(restored.Status.Split(' ')[1]);
-        Require(restored.Details.Single() == new string((char)('a' + index), 4096), "El JSON mezcla escrituras distintas.");
+        HistoryRecord Version(int index) => record with
+        { Status = "Operación " + index, Details = [new string((char)('a' + index), 4096)] };
+        void CheckComplete(HistoryRecord restored)
+        {
+            var index = int.Parse(restored.Status.Split(' ')[1]);
+            Require(index >= 0 && index < 16 && restored.Id == record.Id &&
+                restored.Details.Single() == new string((char)('a' + index), 4096), "El JSON mezcla escrituras distintas.");
+        }
+        store.Save(Version(0));
+        using var start = new ManualResetEventSlim();
+        var writers = Task.WhenAll(Enumerable.Range(0, 16).Select(index => Task.Run(() =>
+        {
+            var writer = index % 2 == 0 ? store : new HistoryStore(store.DirectoryPath);
+            start.Wait();
+            for (var iteration = 0; iteration < 4; iteration++) writer.Save(Version(index));
+        })));
+        var reader = Task.Run(() =>
+        {
+            var readingStore = new HistoryStore(store.DirectoryPath);
+            start.Wait();
+            do { CheckComplete(readingStore.Read(record.Id)); Thread.Yield(); }
+            while (!writers.IsCompleted);
+        });
+        start.Set();
+        await Task.WhenAll(writers, reader);
+        CheckComplete(store.Read(record.Id));
         Require(Directory.GetFiles(store.DirectoryPath).Length == 1, "Quedaron temporales después de guardar.");
+    }
+
+    private static Task UnwritableHistoryAsync()
+    {
+        using var fixture = new Fixture();
+        var store = new HistoryStore(Path.Combine(fixture.Root, "History"));
+        var record = new HistoryRecord { Title = "No reemplazar el destino" };
+        var destination = Path.Combine(store.DirectoryPath, record.Id + ".json");
+        Directory.CreateDirectory(destination);
+        var existing = Path.Combine(destination, "conservar.txt");
+        File.WriteAllText(existing, "contenido anterior");
+        var rejected = false;
+        try { store.Save(record); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { rejected = true; }
+        Require(rejected, "Un error permanente de sustitución se ocultó como un guardado correcto.");
+        Require(Directory.Exists(destination) && File.ReadAllText(existing) == "contenido anterior", "El destino existente fue alterado.");
+        Require(Directory.GetFiles(store.DirectoryPath).Length == 0, "Un guardado rechazado dejó temporales.");
+        return Task.CompletedTask;
     }
 
     private static async Task BoundedOutputAsync()

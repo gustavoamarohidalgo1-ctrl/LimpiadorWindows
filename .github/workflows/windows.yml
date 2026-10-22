@@ -20,6 +20,11 @@ jobs:
           New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
           dotnet build LimpiadorUltraWindows.slnx -c Release 2>&1 | Tee-Object -FilePath "$logDirectory/build.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $fixtureRoot = Join-Path ([System.IO.Path]::GetTempPath()) 'LimpiadorWindows-ci-fixtures'
+          New-Item -ItemType Directory -Path $fixtureRoot -Force | Out-Null
+          "LIMPIADOR_CI_FIXTURES=$fixtureRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $env:TEMP = $fixtureRoot
+          $env:TMP = $fixtureRoot
           dotnet run --project tests/Limpiador.Tests -c Release --no-build 2>&1 | Tee-Object -FilePath "$logDirectory/tests.log"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Publicar x64 y ARM64
@@ -41,3 +46,11 @@ jobs:
           name: Registros-verificacion-Windows
           path: artifacts/ci/*.log
           if-no-files-found: warn
+      - name: Conservar fixtures propios si falla una prueba nativa
+        if: failure() && env.LIMPIADOR_CI_FIXTURES != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fixtures-fallo-Windows
+          path: ${{ env.LIMPIADOR_CI_FIXTURES }}/Limpiador-native-tests-*/**
+          if-no-files-found: ignore
+          retention-days: 7

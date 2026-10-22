@@ -1,31 +1,27 @@
 # Estado de validación — 22 de octubre de 2026
 
-Versión **2.2.0**.
+Versión **2.2.1**.
 
-## Comprobado en el equipo de desarrollo
+## Comprobado en macOS
 
-- Solución completa C#/WPF 2.2.0: compilación cruzada, **0 errores y 0 advertencias**.
-- **40/40 pruebas portátiles aprobadas**. Cubren planes solapados y sus motivos, selección explícita sin elementos añadidos, exclusiones de carpetas y comandos globales, preferencias persistentes y dañadas, argumentos del diagnóstico, cancelación durante comprobaciones y hashes, duplicados, enlaces, historial, salida acotada de procesos y exportación de informes. Incluyen una regresión de planificación con **12.000 candidatos**. Estas pruebas no ejecutan WPF ni las APIs Win32.
-- Ayuda del diagnóstico comprobada. En macOS, `--diagnostico` se rechaza con código 2; no ejecuta el análisis de producción.
-- Publicados aplicación, diagnóstico y verificador 2.2.0 para **win-x64** y **win-arm64**, sin advertencias. Se comprobaron las cabeceras PE y la arquitectura de los seis ejecutables. Esto valida los paquetes generados, no su ejecución en Windows.
-- Código y artefactos originales de macOS resguardados en la carpeta hermana de respaldo. El ZIP de fuentes original fue comprobado y tiene SHA-256.
+- **41/41 pruebas portátiles aprobadas**. Incluyen exclusiones, configuración dañada, selección explícita, planificación con **12.000 candidatos**, duplicados, enlaces, cancelación por bloques, historial e informes JSON.
+- La regresión del historial comprueba 64 escrituras desde varias instancias junto con lecturas concurrentes. Un destino no reemplazable debe conservar sus datos, informar del error y no dejar temporales.
+- Las pruebas portátiles no ejecutan WPF ni las APIs Win32. Compilar XAML y referencias desde macOS tampoco acredita la ejecución de la interfaz.
+- Ayuda del diagnóstico comprobada. En macOS, `--diagnostico` se rechaza con código 2 y no analiza archivos.
 
-La interfaz 2.2 incorpora un plan previo con acciones aceptadas, omitidas y razones; la confirmación calcula el tamaño solo de las aceptadas y solo sus identificadores pueden pasar a ejecución. El validador de esa previsualización se prueba como código portable. El diálogo de configuración guarda antigüedad, carpeta adicional y exclusiones, nunca la selección; un error de lectura exige configurar antes de analizar.
+## Verificación automática en Windows
 
-Se mantienen el modo compacto, el ajuste al área útil del monitor, los atajos, la búsqueda diferida y la carga de resultados por lote. El exportador JSON real se compila también en las pruebas portátiles: se verificaron contenido, vigencia, cancelación, conservación del archivo previo y retirada de temporales. El informe incluye las opciones del análisis, incluidas sus exclusiones. La integración visual de todas estas funciones sigue pendiente de Windows.
+El [workflow Windows](https://github.com/gustavoamarohidalgo1-ctrl/LimpiadorWindows/actions/workflows/windows.yml) compila la solución, ejecuta las pruebas portátiles y nativas y, solo si pasan, genera paquetes x64 y ARM64. Conserva los registros incluso si falla; los fixtures nativos propios de una prueba fallida se guardan durante siete días para investigarlos.
 
-Se añadieron fixtures nativos para rechazar historiales de Papelera inválidos antes de restaurar, conservar destinos ocupados, distinguir errores de acceso de rutas ausentes, rechazar sidecars SQLite y comprobar cancelaciones previas de NTFS, ReFS, Cloud Files, hashes y consultas de bloqueos. Están compilados, **no ejecutados** en este anfitrión.
+La primera ejecución real detectó una carrera al reemplazar simultáneamente el historial y un rechazo de la restauración desde la Papelera. La versión 2.2.1 incorpora correcciones; su confirmación en una nueva ejecución Windows sigue pendiente. No se consideran aprobadas las operaciones nativas mientras esa comprobación no termine correctamente.
 
-La compilación integrada se realizó en la carpeta externa `LimpiadorUltraWindows-herramientas-migracion/build-2.2.0`. Los registros `artifacts/build-release.txt`, `artifacts/tests-core.txt` y `artifacts/publish-*.txt` conservan los resultados del cierre en el equipo de desarrollo. Las sumas SHA-256 acompañan a cada ZIP; `artifacts/verificacion-entrega.json` registra la comprobación final de los paquetes y del archivo de fuentes.
+## Pendiente en equipos Windows
 
-## Pendiente: ejecución en Windows
+- Revisión visual y de interacción de WPF: escalas de pantalla, navegación, configuración, plan previo, confirmación, explorador e historial.
+- Ejecución en Windows ARM64; publicar para esa arquitectura no prueba su ejecución.
+- ReFS sobre un volumen ReFS y OneDrive con archivos de prueba sincronizados.
+- Completar el protocolo [VALIDACION-WINDOWS.md](VALIDACION-WINDOWS.md) y conservar el resultado de `verificar.cmd` en el equipo donde se vaya a usar.
 
-Este anfitrión de desarrollo es macOS. **No se han ejecutado aquí las ventanas WPF ni las operaciones Win32.** La compilación y los fixtures portátiles no acreditan el comportamiento real de COM, NTFS, ReFS, Cloud Files ni winsqlite3.
+Los `SKIP` indican falta de una capacidad o requisito y no cuentan como aprobación. La validación solo utiliza archivos creados para las pruebas. Los archivos personales no se usan como fixtures.
 
-Para cerrar la validación de la migración:
-
-1. Extraer el paquete adecuado en Windows y ejecutar `verificar.cmd`; conservar `resultado-verificacion.txt`, que incluye versión de la aplicación, sistema, arquitectura, runtime y resultados.
-2. Completar los pasos visuales y de interacción de `VALIDACION-WINDOWS.md`.
-3. Comprobar OneDrive con archivos de prueba sincronizados, ReFS sobre un volumen ReFS y ARM64 sobre Windows ARM si se van a usar esas capacidades.
-
-Los `SKIP` indican falta de una capacidad o requisito de prueba y no deben contarse como aprobación. Las operaciones reales sobre los archivos del usuario no se ejecutaron durante la migración.
+La distribución de evaluación incluirá la aplicación, el diagnóstico y el verificador autocontenidos, con sumas SHA-256. El código y los artefactos originales de macOS se conservan fuera del proyecto, en su carpeta de respaldo.

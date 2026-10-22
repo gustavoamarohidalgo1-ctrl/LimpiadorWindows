@@ -14,7 +14,10 @@ public static class RecycleBinService
 {
     // The source flags in PreDeleteItem must also allow recycling; permanent deletion is vetoed.
     // NOERRORUI + EARLYFAILURE turn a full/disabled/unavailable Bin into a failed operation.
-    private const uint Flags = 0x00000004 | 0x00000010 | 0x00000400 | 0x00002000 | 0x00100000 | 0x00080000 | 0x20000000;
+    private const uint RecycleFlags = 0x00000004 | 0x00000010 | 0x00000400 | 0x00002000 | 0x00100000 | 0x00080000 | 0x20000000;
+    // FOF_RENAMEONCOLLISION prevents replacement even if another process creates the destination
+    // after our absence check. PreMoveItem still refuses any destination/name different from the journal.
+    private const uint RestoreFlags = 0x00000004 | 0x00000008 | 0x00000010 | 0x00000400 | 0x00002000 | 0x00100000 | 0x20000000;
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
 
     public static RecycleBatchResult Recycle(IEnumerable<string> paths, string historyDirectory, Action<string>? journalPrepared = null, IReadOnlyDictionary<string, NativeFileMetadata>? expected = null)
@@ -200,7 +203,7 @@ public static class RecycleBinService
         IShellItem? item = null, folder = null;
         try
         {
-            operation.SetOperationFlags(Flags);
+            operation.SetOperationFlags(destination is null ? RecycleFlags : RestoreFlags);
             item = itemId is null ? CreateItem(source) : CreateItemFromId(itemId);
             if (itemId is not null && !ShellPath(item).Equals(sink.Entry.RecyclePath, StringComparison.OrdinalIgnoreCase))
                 throw new IOException("El objeto de la Papelera no coincide con la ruta guardada.");
@@ -211,8 +214,15 @@ public static class RecycleBinService
                 operation.MoveItem(item, folder, Path.GetFileName(sink.Entry.OriginalPath), sink);
             }
             operation.PerformOperations();
+            if (sink.Error is not null) throw sink.Error;
             operation.GetAnyOperationsAborted(out var aborted);
-            if (aborted) throw new IOException("Windows canceló la operación.");
+            if (aborted) throw new IOException($"Windows canceló la operación. Último callback: {sink.LastCallback}.");
+        }
+        catch (COMException ex)
+        {
+            var detail = sink.Error?.Message ?? $"Último callback: {sink.LastCallback}. {ex.Message}";
+            throw new IOException($"El Shell rechazó la operación (HRESULT 0x{ex.HResult:X8}). {detail}",
+                sink.Error is null ? ex : new AggregateException(sink.Error, ex));
         }
         finally
         {
@@ -319,14 +329,17 @@ public static class RecycleBinService
         private readonly IReadOnlyDictionary<string, NativeFileMetadata>? expected;
         internal RecycleEntry Entry { get; }
         internal Exception? Error { get; private set; }
+        internal string LastCallback { get; private set; } = "ninguno";
         internal RecycleProgressSink(RecycleEntry entry, RecycleJournal journal, string journalPath, bool restore, IReadOnlyDictionary<string, NativeFileMetadata>? expected = null)
         { Entry = entry; this.journal = journal; this.journalPath = journalPath; this.restore = restore; this.expected = expected; }
-        private int Guard(Action action)
+        private int Guard(string context, Action action)
         {
+            LastCallback = context;
             try { action(); return 0; }
-            catch (Exception ex) { Error = ex; return unchecked((int)0x80004004); }
+            catch (Exception ex) { Error ??= new IOException($"{context}: {ex.Message}", ex); return unchecked((int)0x80004004); }
         }
-        public int PreDeleteItem(uint flags, IShellItem item) => Guard(() =>
+        private int Reject(string context) => Guard(context, () => throw new IOException("El Shell propuso una operación no autorizada; se cancela."));
+        public int PreDeleteItem(uint flags, IShellItem item) => Guard($"PreDeleteItem(flags=0x{flags:X8})", () =>
         {
             if (restore || (flags & 0x80) == 0) throw new IOException("Windows no ofrece reciclaje recuperable; se impide borrar permanentemente.");
             var path = WindowsFileSystem.NormalizeLocalPath(ShellPath(item));
@@ -334,7 +347,7 @@ public static class RecycleBinService
             WindowsFileSystem.RequireExpected(WindowsFileSystem.GetMetadata(path), Entry.Before);
             ValidateTree(path, expected);
         });
-        public int PostDeleteItem(uint flags, IShellItem item, int result, IShellItem? created) => Guard(() =>
+        public int PostDeleteItem(uint flags, IShellItem item, int result, IShellItem? created) => Guard($"PostDeleteItem(flags=0x{flags:X8}, resultado=0x{result:X8})", () =>
         {
             Marshal.ThrowExceptionForHR(result);
             if (created is null) throw new IOException("Windows no devolvió un elemento recuperable. Revisa la Papelera; no se ejecutarán más operaciones.");
@@ -344,35 +357,44 @@ public static class RecycleBinService
             Entry.State = RecycleItemState.Recycled;
             RequireRecycleIdentity(Entry); Save(journalPath, journal);
         });
-        public int PreMoveItem(uint flags, IShellItem item, IShellItem destination, string? name) => Guard(() =>
+        public int PreMoveItem(uint flags, IShellItem item, IShellItem destination, string? name) => Guard($"PreMoveItem(flags=0x{flags:X8}, nombre={name ?? "<null>"})", () =>
         {
-            if (!restore || (flags & (0x2 | 0x400)) != 0) throw new IOException("No se permite sobrescribir ni copiar y borrar durante una restauración.");
+            // TSF_OVERWRITE_EXIST is a transfer policy, not evidence that a destination exists;
+            // Windows can set it for an ordinary move to a new name. Collision protection belongs
+            // to RestoreFlags plus the exact path/absence checks below, not a blanket veto of bit 0x2.
+            if (!restore || (flags & 0x400) != 0) throw new IOException("No se permite copiar y borrar durante una restauración.");
             var source = WindowsFileSystem.NormalizeLocalPath(ShellPath(item));
             var parent = WindowsFileSystem.NormalizeLocalPath(ShellPath(destination));
             if (!source.Equals(Entry.RecyclePath, StringComparison.OrdinalIgnoreCase)
                 || !parent.Equals(Path.GetDirectoryName(Entry.OriginalPath), StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(name, Path.GetFileName(Entry.OriginalPath), StringComparison.OrdinalIgnoreCase))
-                throw new IOException("El Shell cambió el origen o el destino de la restauración.");
+                throw new IOException($"El Shell cambió el origen o el destino de la restauración: origen={source}; carpeta={parent}; nombre={name ?? "<null>"}.");
             var parentState = WindowsFileSystem.GetMetadata(parent);
             if (!parentState.IsDirectory || parentState.IsReparsePoint || parentState.VolumeSerial != Entry.Before!.VolumeSerial)
                 throw new IOException("La carpeta de destino cambió o pertenece a otro volumen.");
             RequireRecycleIdentity(Entry);
             if (WindowsFileSystem.EntryExists(Entry.OriginalPath)) throw new IOException("El destino de restauración ya existe.");
         });
-        public int PostMoveItem(uint flags, IShellItem item, IShellItem destination, string? name, int result, IShellItem? created) => Guard(() =>
+        public int PostMoveItem(uint flags, IShellItem item, IShellItem destination, string? name, int result, IShellItem? created) => Guard($"PostMoveItem(flags=0x{flags:X8}, nombre={name ?? "<null>"}, resultado=0x{result:X8})", () =>
         {
             Marshal.ThrowExceptionForHR(result);
+            if (created is not null)
+            {
+                var actualPath = WindowsFileSystem.NormalizeLocalPath(ShellPath(created));
+                if (!actualPath.Equals(Entry.OriginalPath, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException($"El Shell conservó el elemento en otra ruta para evitar una colisión: {actualPath}. Revisa esa ruta; no se confirma la restauración original.");
+            }
             var restored = WindowsFileSystem.GetMetadata(Entry.OriginalPath);
             if (restored.VolumeSerial != Entry.Before!.VolumeSerial || restored.FileId != Entry.Before.FileId) throw new IOException("La identidad restaurada no coincide.");
             Entry.State = RecycleItemState.Restored; Entry.Error = null; Save(journalPath, journal);
         });
         public int StartOperations() => 0;
-        public int FinishOperations(int result) => result;
-        public int PreRenameItem(uint flags, IShellItem item, string? name) => unchecked((int)0x80004004);
+        public int FinishOperations(int result) => Guard($"FinishOperations(resultado=0x{result:X8})", () => Marshal.ThrowExceptionForHR(result));
+        public int PreRenameItem(uint flags, IShellItem item, string? name) => Reject($"PreRenameItem(flags=0x{flags:X8}, nombre={name ?? "<null>"})");
         public int PostRenameItem(uint flags, IShellItem item, string? name, int result, IShellItem? created) => 0;
-        public int PreCopyItem(uint flags, IShellItem item, IShellItem destination, string? name) => unchecked((int)0x80004004);
+        public int PreCopyItem(uint flags, IShellItem item, IShellItem destination, string? name) => Reject($"PreCopyItem(flags=0x{flags:X8}, nombre={name ?? "<null>"})");
         public int PostCopyItem(uint flags, IShellItem item, IShellItem destination, string? name, int result, IShellItem? created) => 0;
-        public int PreNewItem(uint flags, IShellItem destination, string? name) => unchecked((int)0x80004004);
+        public int PreNewItem(uint flags, IShellItem destination, string? name) => Reject($"PreNewItem(flags=0x{flags:X8}, nombre={name ?? "<null>"})");
         public int PostNewItem(uint flags, IShellItem destination, string? name, string? template, uint attributes, int result, IShellItem? created) => 0;
         public int UpdateProgress(uint total, uint current) => 0;
         public int ResetTimer() => 0;

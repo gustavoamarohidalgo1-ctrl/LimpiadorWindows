@@ -124,7 +124,7 @@ public static class WindowsSmokeTests
                 var recycledHash = Hash(recycledFile); string? preparedPath = null;
                 var recycled = RecycleBinService.Recycle([recycledFile], Path.Combine(root, "history"), path =>
                 { Require(File.Exists(path) && File.Exists(recycledFile), "Historial guardado antes de reciclar"); preparedPath = path; });
-                Require(!recycled.Aborted && recycled.Items.Single().State == RecycleItemState.Recycled && !File.Exists(recycledFile), "Reciclaje confirmado");
+                Require(!recycled.Aborted && recycled.Items.Single().State == RecycleItemState.Recycled && !File.Exists(recycledFile), "Reciclaje confirmado. " + Describe(recycled));
                 Require(preparedPath == recycled.JournalPath && recycled.Items.Single().RecyclePath is not null, "Ruta de recuperación persistida");
                 var pristineJournal = File.ReadAllText(recycled.JournalPath);
                 var redirectedPath = Path.Combine(root, "unexpected-restore.txt");
@@ -158,18 +158,18 @@ public static class WindowsSmokeTests
                 var occupiedHash = Hash(recycledFile);
                 var occupiedRestore = RecycleBinService.Restore(recycled.JournalPath);
                 Require(occupiedRestore.Aborted && occupiedRestore.Items.Single().State == RecycleItemState.Recycled
-                    && Hash(recycledFile) == occupiedHash && WindowsFileSystem.EntryExists(recycled.Items.Single().RecyclePath!), "Restauración no reemplaza un destino ocupado");
+                    && Hash(recycledFile) == occupiedHash && WindowsFileSystem.EntryExists(recycled.Items.Single().RecyclePath!), "Restauración no reemplaza un destino ocupado. " + Describe(occupiedRestore));
                 File.Delete(recycledFile); // Only the new fixture above, never the recycled original.
                 results.Add("PASS Papelera: destino ocupado se conserva y el original sigue recuperable");
                 var restored = RecycleBinService.Restore(recycled.JournalPath);
-                Require(!restored.Aborted && restored.Items.Single().State == RecycleItemState.Restored && Hash(recycledFile) == recycledHash, "Restauración verificada");
+                Require(!restored.Aborted && restored.Items.Single().State == RecycleItemState.Restored && File.Exists(recycledFile) && Hash(recycledFile) == recycledHash, "Restauración verificada. " + Describe(restored));
                 results.Add("PASS Papelera Shell: intención duradera, ruta recuperable y restauración exacta");
                 var folder = Path.Combine(root, "recycle-folder"); Directory.CreateDirectory(folder);
                 File.WriteAllText(Path.Combine(folder, "nested.txt"), "Fixture anidado.");
                 var recycledFolder = RecycleBinService.Recycle([folder], Path.Combine(root, "history"));
-                Require(!recycledFolder.Aborted && !Directory.Exists(folder), "Reciclaje de carpeta");
+                Require(!recycledFolder.Aborted && !Directory.Exists(folder), "Reciclaje de carpeta. " + Describe(recycledFolder));
                 var restoredFolder = RecycleBinService.Restore(recycledFolder.JournalPath);
-                Require(!restoredFolder.Aborted && File.ReadAllText(Path.Combine(folder, "nested.txt")) == "Fixture anidado.", "Restauración de carpeta");
+                Require(!restoredFolder.Aborted && File.Exists(Path.Combine(folder, "nested.txt")) && File.ReadAllText(Path.Combine(folder, "nested.txt")) == "Fixture anidado.", "Restauración de carpeta. " + Describe(restoredFolder));
                 results.Add("PASS carpeta anidada reciclada y restaurada");
             }
             else results.Add("SKIP Papelera: prueba omitida explícitamente");
@@ -183,6 +183,7 @@ public static class WindowsSmokeTests
         }
     }
     private static string Hash(string path) { using var stream = File.OpenRead(path); return Convert.ToHexString(SHA256.HashData(stream)); }
+    private static string Describe(RecycleBatchResult result) => "Resultado Shell: " + JsonSerializer.Serialize(result);
     private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException("Verificación fallida: " + message); }
     private static void ExpectFailure(Action work, string message)
     {

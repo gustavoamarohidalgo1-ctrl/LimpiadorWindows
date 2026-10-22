@@ -7,6 +7,9 @@ public sealed class HistoryStore
 {
     public string DirectoryPath { get; }
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    // Windows may reject simultaneous replace-renames of the same destination. Share this
+    // short commit gate across store instances; serialize and flush each temporary independently.
+    private static readonly object CommitGate = new();
 
     public HistoryStore(string directoryPath) => DirectoryPath = Path.GetFullPath(directoryPath);
 
@@ -25,7 +28,7 @@ public sealed class HistoryStore
                 JsonSerializer.Serialize(stream, record, JsonOptions);
                 stream.Flush(true);
             }
-            File.Move(temporary, path, true);
+            lock (CommitGate) File.Move(temporary, path, true);
         }
         finally
         {
