@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Limpiador.App/Limpiador.App.csproj" />
+    <Project Path="src/Limpiador.Cli/Limpiador.Cli.csproj" />
+    <Project Path="src/Limpiador.Core/Limpiador.Core.csproj" />
+    <Project Path="src/Limpiador.Runtime/Limpiador.Runtime.csproj" />
+    <Project Path="src/Limpiador.Windows/Limpiador.Windows.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Limpiador.Tests/Limpiador.Tests.csproj" />
+  </Folder>
+</Solution>

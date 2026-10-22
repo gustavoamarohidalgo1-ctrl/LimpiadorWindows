@@ -1,0 +1,143 @@
+<Window x:Class="Limpiador.App.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Limpiador Ultra Windows" Width="1380" Height="860" MinWidth="320" MinHeight="240" WindowStartupLocation="CenterScreen"
+        Loaded="Window_Loaded" Closing="Window_Closing" SizeChanged="Window_SizeChanged" PreviewKeyDown="Window_PreviewKeyDown">
+  <Grid x:Name="MainLayout">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Border x:Name="HeaderBorder" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="24,18">
+      <Grid>
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel>
+          <TextBlock x:Name="ApplicationTitle" Text="Limpiador Ultra Windows" FontSize="25" FontWeight="SemiBold"/>
+          <TextBlock x:Name="ComputerDescriptionText" Text="{Binding ComputerDescription}" Style="{StaticResource MutedText}" Margin="0,4,16,0"/>
+        </StackPanel>
+        <WrapPanel x:Name="HeaderActions" Grid.Column="1" VerticalAlignment="Center">
+          <Button Content="_Historial" Click="History_Click" IsEnabled="{Binding Idle}" AutomationProperties.HelpText="Consulta los resultados de limpieza y restaura las operaciones que lo permitan."/>
+          <Button Content="_Configurar…" Click="Preferences_Click" IsEnabled="{Binding Idle}" AutomationProperties.HelpText="Configura antigüedad, carpeta adicional y carpetas excluidas. Solo se guardan opciones, nunca casillas de limpieza."/>
+          <Button Content="_Analizar equipo" ToolTip="Analizar equipo (F5)" Click="Scan_Click" IsEnabled="{Binding CanScan}" Style="{StaticResource PrimaryButton}" AutomationProperties.HelpText="Analiza archivos sin modificarlos. No selecciona elementos automáticamente."/>
+          <Button Content="_Detener" Click="Cancel_Click" IsEnabled="{Binding Busy}" Margin="0"/>
+        </WrapPanel>
+      </Grid>
+    </Border>
+    <TabControl x:Name="CompactTabs" Grid.Row="1" Visibility="Collapsed" SelectedIndex="1" SelectionChanged="CompactTabs_SelectionChanged" AutomationProperties.Name="Panel de trabajo" Padding="0" BorderThickness="0" Margin="10,4,10,0">
+      <TabItem Header="Almacenamiento" ToolTip="Almacenamiento (Ctrl+1)"/><TabItem Header="Resultados" ToolTip="Resultados (Ctrl+2)"/><TabItem Header="Detalle" ToolTip="Detalle del elemento (Ctrl+3)"/>
+    </TabControl>
+    <Grid x:Name="WorkArea" Grid.Row="2">
+      <Grid.ColumnDefinitions><ColumnDefinition x:Name="StorageColumn" Width="244" MinWidth="210"/><ColumnDefinition x:Name="FirstSplitterColumn" Width="5"/><ColumnDefinition x:Name="ResultsColumn" Width="*" MinWidth="440"/><ColumnDefinition x:Name="SecondSplitterColumn" Width="5"/><ColumnDefinition x:Name="DetailsColumn" Width="330" MinWidth="270"/></Grid.ColumnDefinitions>
+      <Border x:Name="StoragePane" Background="{DynamicResource Sidebar}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="18">
+            <TextBlock Text="TU ALMACENAMIENTO" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,4,0,14"/>
+            <ItemsControl ItemsSource="{Binding Disks}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                  <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,0,0,10">
+                    <StackPanel>
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+                      <TextBlock Text="{Binding FreeText}" FontSize="22" FontWeight="SemiBold" Margin="0,7,0,5"/>
+                      <ProgressBar Value="{Binding UsedPercent}" Maximum="100" Height="7" Foreground="{DynamicResource Accent}" AutomationProperties.Name="Porcentaje usado del disco"/>
+                      <TextBlock Text="{Binding CapacityText}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,8,0,0"/>
+                    </StackPanel>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <Button Content="_Explorar espacio…" Click="ExploreSpace_Click" IsEnabled="{Binding CanExplore}" HorizontalAlignment="Left" Margin="0,0,0,10" AutomationProperties.HelpText="Explora tamaños y carpetas del último análisis sin modificar archivos."/>
+            <Button Content="Exportar informe JSON…" Click="Export_Click" IsEnabled="{Binding CanExport}" HorizontalAlignment="Left" FontSize="12" Padding="8,6" Margin="0,0,0,10" AutomationProperties.HelpText="Guarda el último análisis en un archivo elegido por ti. No guarda las casillas marcadas."/>
+            <Button Content="Almacenamiento de Windows" Click="StorageSettings_Click" HorizontalAlignment="Left" FontSize="12" Padding="8,6" Margin="0,0,0,18"/>
+            <TextBlock Text="CATEGORÍAS" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Muted}" Margin="0,0,0,10"/>
+            <ListBox ItemsSource="{Binding Categories}" SelectedItem="{Binding Category}" Background="Transparent" BorderThickness="0" HorizontalContentAlignment="Stretch" AutomationProperties.Name="Categorías del análisis" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+              <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="Padding" Value="8,10"/><Setter Property="Margin" Value="0,0,0,4"/></Style></ListBox.ItemContainerStyle>
+              <ListBox.ItemTemplate><DataTemplate><StackPanel><TextBlock Text="{Binding Title}" TextWrapping="Wrap" FontWeight="SemiBold"/><TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,4,0,0" TextWrapping="Wrap"/></StackPanel></DataTemplate></ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Text="El análisis se limita a ubicaciones permitidas. Los archivos del sistema y las carpetas protegidas se conservan." Style="{StaticResource MutedText}" FontSize="12" Margin="4,18,4,0"/>
+          </StackPanel>
+        </ScrollViewer>
+      </Border>
+      <GridSplitter x:Name="FirstSplitter" Grid.Column="1" Width="5" HorizontalAlignment="Stretch" Background="Transparent"/>
+      <Grid x:Name="ResultsPane" Grid.Column="2" Margin="18,20">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+        <StackPanel>
+          <TextBlock Text="{Binding CategoryTitle}" FontSize="21" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+          <TextBlock x:Name="ScanSummaryText" Text="{Binding ScanSummary}" Style="{StaticResource MutedText}" Margin="0,6,0,12"/>
+        </StackPanel>
+        <Expander x:Name="OptionsExpander" Grid.Row="1" Header="{Binding FilterCaption}" IsExpanded="True" Expanded="OptionsExpansion_Changed" Collapsed="OptionsExpansion_Changed" Margin="0,5,0,8">
+          <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="0,8,5,0">
+              <TextBlock Text="{Binding PreferencesSummary}" Style="{StaticResource MutedText}" Margin="0,0,0,10" ToolTip="{Binding PreferencesSummary}"/>
+              <Grid Margin="0,0,0,10"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                <ComboBox ItemsSource="{Binding RiskOptions}" SelectedIndex="{Binding RiskIndex}" AutomationProperties.Name="Filtrar por riesgo" Margin="0,0,10,0"/>
+                <ComboBox Grid.Column="1" ItemsSource="{Binding SortOptions}" SelectedIndex="{Binding SortIndex}" AutomationProperties.Name="Ordenar elementos"/>
+              </Grid>
+              <Button Content="Quitar filtros" Click="ClearFilters_Click" FontSize="12" Padding="9,6" Margin="0,0,0,8" HorizontalAlignment="Left" ToolTip="Muestra todas las categorías y riesgos, y borra la búsqueda. Conserva las casillas marcadas."/>
+              <WrapPanel IsEnabled="{Binding CanSelectItems}">
+                <Button Content="Marcar seguros" Click="SelectSafe_Click" FontSize="12" Padding="9,6" ToolTip="Marca los elementos visibles recomendados y reversibles de riesgo Seguro. Revisa sus consecuencias antes de ejecutar."/>
+                <Button Content="Desmarcar todos" Click="ClearSelection_Click" FontSize="12" Padding="9,6"/>
+                <Button Content="Liberar al máximo…" Click="Maximum_Click" FontSize="12" Padding="9,6" Margin="0" ToolTip="Revisa los costes de cada grupo antes de seleccionarlo."/>
+              </WrapPanel>
+            </StackPanel>
+          </ScrollViewer>
+        </Expander>
+        <Grid Grid.Row="2" Margin="0,0,0,10"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <Label Content="Buscar por nombre o ruta (Ctrl+F)" Target="{Binding ElementName=SearchBox}" FontSize="12" Padding="0,0,0,4"/>
+          <TextBox x:Name="SearchBox" Grid.Row="1" Text="{Binding Query, UpdateSourceTrigger=PropertyChanged, Delay=250}" AutomationProperties.Name="Buscar por nombre o ruta. Atajo Control F." ToolTip="Buscar por nombre o ruta (Ctrl+F). Escape borra la búsqueda." VerticalContentAlignment="Center"/>
+          <Button Grid.Row="1" Grid.Column="1" Content="Borrar búsqueda" Click="ClearSearch_Click" FontSize="12" Padding="8,6" Margin="6,0,0,0"/>
+        </Grid>
+        <Grid Grid.Row="3">
+          <DataGrid x:Name="ResultsGrid" PreviewKeyDown="Results_KeyDown" MouseDoubleClick="Results_DoubleClick" ItemsSource="{Binding FilteredItems}" SelectedItem="{Binding FocusedItem}" AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="False" CanUserReorderColumns="False" CanUserSortColumns="False" SelectionMode="Single" SelectionUnit="FullRow" HeadersVisibility="Column" GridLinesVisibility="Horizontal" HorizontalGridLinesBrush="{DynamicResource SoftLine}" BorderBrush="{DynamicResource Line}" Background="{DynamicResource Surface}" RowHeaderWidth="0" EnableRowVirtualization="True" IsReadOnly="True" AutomationProperties.Name="Elementos encontrados. Espacio marca la fila; Enter abre sus detalles." ScrollViewer.HorizontalScrollBarVisibility="Auto">
+            <DataGrid.Columns>
+              <DataGridTemplateColumn Header="Marcar" Width="55"><DataGridTemplateColumn.CellTemplate><DataTemplate><CheckBox IsChecked="{Binding Selected, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" HorizontalAlignment="Center" VerticalAlignment="Center" IsEnabled="{Binding DataContext.CanSelectItems, RelativeSource={RelativeSource AncestorType=Window}}" AutomationProperties.Name="{Binding Item.Name}" AutomationProperties.HelpText="{Binding Item.BlockedReason}" ToolTip="{Binding Item.BlockedReason}"><CheckBox.Style><Style TargetType="CheckBox" BasedOn="{StaticResource {x:Type CheckBox}}"><Style.Triggers><DataTrigger Binding="{Binding Item.CanSelect}" Value="False"><Setter Property="Visibility" Value="Hidden"/></DataTrigger></Style.Triggers></Style></CheckBox.Style></CheckBox></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="Elemento" Width="*" MinWidth="160"><DataGridTemplateColumn.CellTemplate><DataTemplate><StackPanel Margin="4,10,8,10"><TextBlock Text="{Binding Item.Name}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Item.Description}" Foreground="{DynamicResource Muted}" FontSize="12" TextWrapping="Wrap" MaxHeight="48" Margin="0,4,0,0" ToolTip="{Binding Item.Description}"/><TextBlock Text="{Binding Item.BlockedReason}" Foreground="{DynamicResource Caution}" FontSize="12" TextWrapping="Wrap"/></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+              <DataGridTemplateColumn Header="Riesgo" Width="70"><DataGridTemplateColumn.CellTemplate><DataTemplate><TextBlock Text="{Binding Item.RiskLabel}" Style="{StaticResource RiskText}" Margin="3,12,3,0" FontSize="12"/></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+              <DataGridTextColumn Header="Tamaño" Binding="{Binding Item.SizeText}" Width="85"><DataGridTextColumn.ElementStyle><Style TargetType="TextBlock"><Setter Property="Margin" Value="4,12,8,0"/><Setter Property="TextAlignment" Value="Right"/></Style></DataGridTextColumn.ElementStyle></DataGridTextColumn>
+            </DataGrid.Columns>
+          </DataGrid>
+          <Border Background="{DynamicResource Surface}" Margin="1,30,1,1" Padding="16" IsHitTestVisible="False" Visibility="{Binding HasNoResults, Converter={StaticResource BooleanVisibility}}"><StackPanel VerticalAlignment="Center"><TextBlock Text="{Binding EmptyTitle}" AutomationProperties.LiveSetting="Polite" FontSize="20" TextWrapping="Wrap" TextAlignment="Center" FontWeight="SemiBold"/><TextBlock Text="{Binding EmptyDescription}" Style="{StaticResource MutedText}" TextAlignment="Center" Margin="0,14,0,0"/></StackPanel></Border>
+        </Grid>
+        <StackPanel Grid.Row="4" Margin="0,8,0,0">
+          <TextBlock Text="{Binding ResultCount}" Style="{StaticResource MutedText}" FontSize="12"/>
+          <Expander Header="{Binding WarningTitle}" Visibility="{Binding HasWarnings, Converter={StaticResource BooleanVisibility}}" Margin="0,8,0,0"><ScrollViewer MaxHeight="130" VerticalScrollBarVisibility="Auto"><ItemsControl ItemsSource="{Binding Warnings}"><ItemsControl.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="4,4" Foreground="{DynamicResource Caution}"/></DataTemplate></ItemsControl.ItemTemplate></ItemsControl></ScrollViewer></Expander>
+        </StackPanel>
+      </Grid>
+      <GridSplitter x:Name="SecondSplitter" Grid.Column="3" Width="5" HorizontalAlignment="Stretch" Background="Transparent"/>
+      <Border x:Name="DetailsPane" Grid.Column="4" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1,0,0,0">
+        <Grid>
+          <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="22" DataContext="{Binding FocusedItem}">
+              <TextBlock Text="DETALLES DEL ELEMENTO" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"/>
+              <TextBlock Text="{Binding Item.Name}" FontSize="24" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,14,0,8"/>
+              <StackPanel Orientation="Horizontal"><TextBlock Text="{Binding Item.SizeText}" FontSize="20" FontWeight="SemiBold" Margin="0,0,16,0"/><TextBlock Text="{Binding Item.RiskLabel}" Style="{StaticResource RiskText}" VerticalAlignment="Center"/></StackPanel>
+              <TextBlock Text="{Binding Item.Description}" Style="{StaticResource MutedText}" Margin="0,12,0,0"/>
+              <TextBlock Text="{Binding Item.LastUsedText}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,8,0,0"/>
+              <TextBlock Text="Por qué aparece" Style="{StaticResource SectionLabel}"/>
+              <ItemsControl ItemsSource="{Binding Item.Reasons}"><ItemsControl.ItemTemplate><DataTemplate><StackPanel Margin="0,0,0,12"><TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap"/><TextBlock Text="{Binding Description}" Style="{StaticResource MutedText}" Margin="0,4,0,0"/></StackPanel></DataTemplate></ItemsControl.ItemTemplate></ItemsControl>
+              <TextBlock Text="Acción y recuperación" Style="{StaticResource SectionLabel}"/>
+              <TextBlock Text="{Binding Item.ActionLabel}" FontWeight="SemiBold" TextWrapping="Wrap"/>
+              <TextBlock Text="{Binding Item.RecoveryText}" Style="{StaticResource MutedText}" Margin="0,6,0,0"/>
+              <TextBlock Text="Costes y consecuencias" Style="{StaticResource SectionLabel}"/>
+              <TextBlock Text="{Binding Item.CostText}" Style="{StaticResource MutedText}"/>
+              <TextBlock Text="Ubicaciones" Style="{StaticResource SectionLabel}"/>
+              <ListBox x:Name="PathsList" ItemsSource="{Binding Item.Paths}" SelectedIndex="0" MaxHeight="210" Background="{DynamicResource Subtle}" BorderThickness="0" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Ubicaciones del elemento. Selecciona la ruta que deseas abrir."><ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" FontSize="12" Padding="5"/></DataTemplate></ListBox.ItemTemplate></ListBox>
+              <WrapPanel Margin="0,10,0,0"><Button Content="Abrir ubicación" Click="Explorer_Click" FontSize="12" Padding="8,6"/><Button Content="Copiar rutas" Click="CopyPaths_Click" FontSize="12" Padding="8,6" Margin="0"/></WrapPanel>
+              <Separator Margin="0,22,0,12"/>
+              <Border IsEnabled="{Binding DataContext.CanSelectItems, RelativeSource={RelativeSource AncestorType=Window}}"><CheckBox Content="Marcar para limpiar" IsChecked="{Binding Selected, Mode=TwoWay}" IsEnabled="{Binding Item.CanSelect}" AutomationProperties.HelpText="{Binding Item.BlockedReason}"/></Border>
+              <TextBlock Text="{Binding Item.BlockedReason}" TextWrapping="Wrap" Foreground="{DynamicResource Caution}" Margin="0,8,0,0"/>
+              <Button Content="Solicitar cierre de aplicaciones…" Click="CloseApplications_Click" Visibility="{Binding Item.CanCloseApplications, Converter={StaticResource BooleanVisibility}}" IsEnabled="{Binding DataContext.CanSelectItems, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,14,0,0" FontSize="12" ToolTip="Pide cerrar las aplicaciones asociadas. No finaliza procesos a la fuerza y no limpia archivos."/>
+            </StackPanel>
+          </ScrollViewer>
+          <Border Background="{DynamicResource Surface}" Padding="28" Visibility="{Binding HasNoFocusedItem, Converter={StaticResource BooleanVisibility}}"><StackPanel VerticalAlignment="Center"><TextBlock Text="Revisa antes de limpiar" FontWeight="SemiBold" FontSize="22" TextWrapping="Wrap"/><TextBlock Text="Selecciona una fila para conocer sus rutas, motivos, riesgos y costes. Marcar su casilla la añade a tu selección." Style="{StaticResource MutedText}" Margin="0,12,0,0"/></StackPanel></Border>
+        </Grid>
+      </Border>
+    </Grid>
+    <Border x:Name="FooterBorder" Grid.Row="3" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="24,14">
+      <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/></Grid.RowDefinitions><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel Margin="0,0,20,0">
+          <TextBlock Text="{Binding Status}" TextWrapping="Wrap" MaxHeight="42" ToolTip="{Binding Status}" AutomationProperties.LiveSetting="Polite"/>
+          <ProgressBar Value="{Binding Progress}" IsIndeterminate="{Binding Indeterminate}" Visibility="{Binding Busy, Converter={StaticResource BooleanVisibility}}" Maximum="100" Height="5" Margin="0,8,0,0" AutomationProperties.Name="Progreso de la operación"/>
+          <TextBlock x:Name="SelectionTimingText" Text="{Binding SelectionTiming}" Style="{StaticResource MutedText}" FontSize="12" Margin="0,5,0,0"/>
+        </StackPanel>
+        <WrapPanel x:Name="FooterActions" Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="{Binding SelectionSummary}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,18,0"/><Button Content="_Revisar y limpiar…" Click="Clean_Click" IsEnabled="{Binding CanClean}" Style="{StaticResource PrimaryButton}" Margin="0"/></WrapPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

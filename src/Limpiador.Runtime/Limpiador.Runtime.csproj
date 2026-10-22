@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>Limpiador.Runtime</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Limpiador.Core/Limpiador.Core.csproj" />
+    <ProjectReference Include="../Limpiador.Windows/Limpiador.Windows.csproj" />
+  </ItemGroup>
+</Project>

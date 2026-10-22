@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <Version>2.2.0</Version>
+    <Authors>Limpiador Ultra</Authors>
+    <Product>Limpiador Ultra Windows</Product>
+  </PropertyGroup>
+</Project>

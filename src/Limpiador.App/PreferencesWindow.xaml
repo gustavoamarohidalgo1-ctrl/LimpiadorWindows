@@ -1,0 +1,34 @@
+<Window x:Class="Limpiador.App.PreferencesWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Configurar el análisis" Width="780" Height="800" WindowStartupLocation="CenterOwner">
+  <Grid Margin="24"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <StackPanel Margin="0,0,0,18">
+      <TextBlock Text="Opciones del análisis" FontSize="25" FontWeight="SemiBold" TextWrapping="Wrap"/>
+      <TextBlock Text="Las carpetas excluidas y su contenido no se analizarán. Guardar estas opciones requiere un nuevo análisis y desmarca la selección actual." Style="{StaticResource MutedText}" Margin="0,8,0,0"/>
+      <TextBlock x:Name="RecoveryNotice" Text="No se pudieron cargar las preferencias guardadas. Revisa estas opciones y guárdalas para habilitar el análisis." Foreground="{DynamicResource Caution}" TextWrapping="Wrap" FontWeight="SemiBold" Margin="0,8,0,0" Visibility="Collapsed"/>
+    </StackPanel>
+    <WrapPanel Grid.Row="1" Margin="0,0,0,16"><Label Content="Antigüedad mínima (días)" Target="{Binding ElementName=AgeBox}" VerticalAlignment="Center" Padding="0,0,16,0"/><ComboBox x:Name="AgeBox" Width="110" AutomationProperties.HelpText="Se aplica a las categorías que usan antigüedad."/></WrapPanel>
+    <StackPanel Grid.Row="2" Margin="0,0,0,18">
+      <Label Content="Carpeta adicional (opcional)" Target="{Binding ElementName=AdditionalFolderBox}" Padding="0,0,0,6"/>
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <TextBox x:Name="AdditionalFolderBox" IsReadOnly="True" AutomationProperties.Name="Carpeta adicional"/>
+        <Button Grid.Column="1" Content="Elegir…" Click="ChooseAdditionalFolder_Click" Margin="8,0,8,0"/>
+        <Button Grid.Column="2" Content="Quitar" Click="RemoveAdditionalFolder_Click" Margin="0"/>
+      </Grid>
+    </StackPanel>
+    <StackPanel Grid.Row="3" Margin="0,0,0,10">
+      <TextBlock Text="Carpetas excluidas" FontWeight="SemiBold"/>
+      <TextBlock Text="Añade las ubicaciones que quieres dejar fuera, incluso si están dentro de la carpeta adicional." Style="{StaticResource MutedText}" Margin="0,6,0,10"/>
+      <WrapPanel><Button Content="Añadir carpeta…" Click="AddExcludedFolder_Click"/><Button x:Name="RemoveExcludedFolder" Content="Quitar exclusión" Click="RemoveExcludedFolder_Click" IsEnabled="False"/></WrapPanel>
+    </StackPanel>
+    <Grid Grid.Row="4"><Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <ListBox x:Name="ExcludedFoldersList" SelectionMode="Single" SelectionChanged="ExcludedFolders_SelectionChanged" PreviewKeyDown="ExcludedFolders_KeyDown" BorderBrush="{DynamicResource Line}" HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled" AutomationProperties.Name="Carpetas excluidas. Suprimir quita la exclusión de la carpeta seleccionada.">
+        <ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="6,8"/></DataTemplate></ListBox.ItemTemplate>
+      </ListBox>
+      <TextBlock x:Name="ExclusionCountText" Grid.Row="1" Style="{StaticResource MutedText}" FontSize="12" Margin="0,8,0,0" AutomationProperties.LiveSetting="Polite"/>
+    </Grid>
+    <StackPanel Grid.Row="5" Margin="0,16,0,0">
+      <TextBlock Text="Solo se guardan estas opciones. Las casillas de limpieza nunca se guardan." Style="{StaticResource MutedText}" FontSize="12" Margin="0,0,0,12"/>
+      <WrapPanel HorizontalAlignment="Right"><Button Content="Cancelar" IsCancel="True"/><Button Content="Guardar preferencias" Click="Save_Click" Style="{StaticResource PrimaryButton}" IsDefault="False" Margin="0"/></WrapPanel>
+    </StackPanel>
+  </Grid>
+</Window>

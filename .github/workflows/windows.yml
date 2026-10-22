@@ -1,0 +1,43 @@
+name: Windows
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Compilar y probar
+        shell: pwsh
+        run: |
+          $logDirectory = Join-Path $env:GITHUB_WORKSPACE 'artifacts/ci'
+          New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+          dotnet build LimpiadorUltraWindows.slnx -c Release 2>&1 | Tee-Object -FilePath "$logDirectory/build.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet run --project tests/Limpiador.Tests -c Release --no-build 2>&1 | Tee-Object -FilePath "$logDirectory/tests.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Publicar x64 y ARM64
+        shell: pwsh
+        run: |
+          ./scripts/compilar.ps1 -Arquitectura win-x64 -SinPruebas
+          ./scripts/compilar.ps1 -Arquitectura win-arm64 -SinPruebas
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LimpiadorUltraWindows
+          path: |
+            dist/*.zip
+            dist/*.sha256
+          if-no-files-found: error
+      - name: Conservar registros de compilación y pruebas
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Registros-verificacion-Windows
+          path: artifacts/ci/*.log
+          if-no-files-found: warn
